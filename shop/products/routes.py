@@ -1,13 +1,49 @@
 from flask import redirect, render_template, url_for, flash, request, session, current_app
-from shop import db, app, photos
+from shop import db, app, photos, search
 from .forms import Addproducts
 from .models import Brand, Category, Addproduct
 import secrets
 import os
 
+def brands():
+    brands = Brand.query.join(Addproduct, (Brand.id == Addproduct.brand_id)).all()
+    return brands
+
+def categories():
+    categories = Category.query.join(Addproduct,(Category.id == Addproduct.category_id)).all()
+    return categories
+
 @app.route('/')
-def home():
-    return " "
+def home(max_per_page=3):
+    page = request.args.get('page',1, type=int)
+    products = Addproduct.query.filter(Addproduct.stock > 0).order_by(Addproduct.id.desc()).paginate(page=page, per_page=max_per_page)
+    return render_template('products/index.html', products = products, brands=brands(),categories=categories(), title='My Shop', max_per_page=max_per_page)
+
+@app.route('/result')
+def result():
+    searchword = request.args.get('q')
+    products = Addproduct.query.msearch(searchword, fields=['name','desc'] , limit=6)
+    print([product for product in products])
+    return render_template('products/result.html',products=products,brands=brands(),categories=categories())
+
+@app.route('/brand/<int:id>')
+def get_brand(id, max_per_page = 1):
+    page = request.args.get('page',1, type=int)
+    get_brand = Brand.query.filter_by(id=id).first_or_404()
+    brand = Addproduct.query.filter_by(brand=get_brand).paginate(page=page, per_page=max_per_page)
+    return render_template('products/index.html',brand=brand,brands=brands(),categories=categories(),get_brand=get_brand, max_per_page=max_per_page)
+
+@app.route('/categories/<int:id>')
+def get_category(id, max_per_page=1):
+    page = request.args.get('page',1, type=int)
+    get_cat = Category.query.filter_by(id=id).first_or_404()
+    get_cat_prod = Addproduct.query.filter_by(category=get_cat).paginate(page=page, per_page=max_per_page)
+    return render_template('products/index.html',get_cat_prod=get_cat_prod,brands=brands(),categories=categories(),get_cat=get_cat, max_per_page=max_per_page)
+
+@app.route('/product/<int:id>')
+def single_page(id):
+    product = Addproduct.query.get_or_404(id)
+    return render_template('products/single_page.html',product=product,brands=brands(),categories=categories())
 
 @app.route('/addbrand',methods=['GET','POST'])
 def addbrand():
@@ -30,7 +66,6 @@ def addcat():
         db.session.commit()
         return redirect(url_for('addcat'))
     return render_template('products/addbrand.html', title='Add category')
-
 
 @app.route('/addproduct', methods=['POST', 'GET'])
 def addproduct():
@@ -71,14 +106,13 @@ def updatebrand(id):
     brand = updatebrand.name
     return render_template('products/addbrand.html', title='Udate brand',brands='brands',updatebrand=updatebrand)
 
-
 @app.route('/updatecat/<int:id>',methods=['GET','POST'])
 def updatecat(id):
     if 'email' not in session:
         flash('Login first please','danger')
         return redirect(url_for('login'))
     updatecat = Category.query.get_or_404(id)
-    category = request.form.get('category')  
+    category = request.form.get('category')
     if request.method =="POST":
         flash(f'The category {updatecat.name} was changed to {category}','success')
         updatecat.name = category
@@ -86,7 +120,6 @@ def updatecat(id):
         return redirect(url_for('categories'))
     category = updatecat.name
     return render_template('products/addbrand.html', title='Update cat',updatecat=updatecat)
-
 
 @app.route('/updateproduct/<int:id>', methods=['GET','POST'])
 def updateproduct(id):
@@ -97,10 +130,10 @@ def updateproduct(id):
     brand = request.form.get('brand')
     category = request.form.get('category')
     if request.method =="POST":
-        product.name = form.name.data 
+        product.name = form.name.data
         product.price = form.price.data
         product.discount = form.discount.data
-        product.stock = form.stock.data 
+        product.stock = form.stock.data
         product.colors = form.colors.data
         product.desc = form.description.data
         product.category_id = category
@@ -137,7 +170,6 @@ def updateproduct(id):
     category = product.category.name
     return render_template('products/updateproduct.html', form=form, title='Update Product',getproduct=product, brands=brands,categories=categories)
 
-
 @app.route('/deletebrand/<int:id>', methods=['GET','POST'])
 def deletebrand(id):
     brand = Brand.query.get_or_404(id)
@@ -156,7 +188,7 @@ def deletebrand(id):
 
 @app.route('/deletecat/<int:id>', methods=['GET','POST'])
 def deletecat(id):
-    category = Category.query.get_or_404(id) 
+    category = Category.query.get_or_404(id)
     set_query = set([idx for cat_id in Addproduct.query.with_entities(Addproduct.category_id).distinct().all() for idx in cat_id]) 
     if request.method=="POST":
         if category.id in set_query:
@@ -169,7 +201,6 @@ def deletecat(id):
             return redirect(url_for('admin'))
     flash(f"The Category {category.name} can't be  deleted from your database","warning")
     return redirect(url_for('admin'))
-
 
 @app.route('/deleteproduct/<int:id>', methods=['POST'])
 def deleteproduct(id):

@@ -30,6 +30,12 @@ SQLAlchemy = "==1.3.23"
 WTForms = "==2.3.3"
 flask-uploads = "*"
 werkzeug = "==0.16.0"
+flask-msearch = "*"
+flask-login = "*"
+flask-migrate = "*"
+pdfkit = "*"
+stripe = "*"
+wkhtmltopdf = "*"
 
 [dev-packages]
 

@@ -5,9 +5,9 @@ from .models import User
 from shop.products.models import Addproduct, Category,Brand
 import os
 
+
 @app.route('/admin')
 def admin():
-    print(session)
     if 'email' not in session:
         flash(f'Please login first', 'danger')
         return redirect(url_for('login'))
@@ -39,7 +39,6 @@ def register():
         user = User(name=form.name.data, username=form.username.data, email=form.email.data, password=hash_password)
         db.session.add(user)
         db.session.commit()
-        
         flash(f'Welcome {form.name.data} Thanks for registering', 'success')
         return redirect(url_for('admin'))
     return render_template('admin/register.html', form=form, title="Registration page")
